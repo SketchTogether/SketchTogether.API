@@ -1,0 +1,179 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Base model for common fields
+model BaseEntity {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  isDeleted Boolean  @default(false) @map("is_deleted")
+  isActive  Boolean  @default(true) @map("is_active")
+
+  @@map("base_entity")
+}
+
+// User Management
+model User {
+  id           String         @id @default(uuid()) @map("id")
+  email        String         @unique
+  username     String         @unique
+  passwordHash String         @map("password_hash")
+  lastLoginAt  DateTime?      @map("last_login_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  isDeleted    Boolean        @default(false) @map("is_deleted")
+
+  // Relations
+  drawings         Drawing[]
+  drawingSessions  UserSession[]
+  drawingActions   DrawingAction[]
+  drawingVersions  DrawingVersion[]
+  permissions      Permission[]
+
+  @@map("users")
+}
+
+// Drawings
+model Drawing {
+  id                  String           @id @default(uuid())
+  title               String
+  description         String?
+  ownerId            String           @map("owner_id")
+  width              Int              @default(1024)
+  height             Int              @default(768)
+  thumbnailUrl       String?          @map("thumbnail_url")
+  isPublic           Boolean          @default(false) @map("is_public")
+  tags               String[]
+  category           String?
+  backgroundLayerData Json            @default("{}") @map("background_layer_data")
+  drawingLayerData   Json            @default("{}") @map("drawing_layer_data")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  isDeleted          Boolean          @default(false) @map("is_deleted")
+
+  // Relations
+  owner              User             @relation(fields: [ownerId], references: [id])
+  sessions           DrawingSession[]
+  actions            DrawingAction[]
+  versions           DrawingVersion[]
+  permissions        Permission[]
+
+  @@index([ownerId])
+  @@index([title])
+  @@map("drawings")
+}
+
+// Real-time session per drawing
+model DrawingSession {
+  id        String        @id @default(uuid())
+  drawingId String        @map("drawing_id")
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+  isDeleted Boolean       @default(false) @map("is_deleted")
+  isActive  Boolean       @default(true) @map("is_active")
+
+  // Relations
+  drawing     Drawing       @relation(fields: [drawingId], references: [id])
+  userSessions UserSession[]
+
+  @@index([drawingId, isActive])
+  @@map("drawing_sessions")
+}
+
+// Active user per session
+model UserSession {
+  id           String        @id @default(uuid())
+  userId       String        @map("user_id")
+  sessionId    String        @map("session_id")
+  connectionId String        @map("connection_id")
+  lastActivity DateTime      @default(now()) @map("last_activity")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  isDeleted    Boolean       @default(false) @map("is_deleted")
+  isActive     Boolean       @default(true) @map("is_active")
+
+  // Relations
+  user    User          @relation(fields: [userId], references: [id])
+  session DrawingSession @relation(fields: [sessionId], references: [id])
+
+  @@index([sessionId, userId])
+  @@index([connectionId])
+  @@map("user_sessions")
+}
+
+// Drawing actions for undo/redo
+model DrawingAction {
+  id         String   @id @default(uuid())
+  drawingId  String   @map("drawing_id")
+  userId     String   @map("user_id")
+  actionType String   @map("action_type")
+  actionData Json     @map("action_data")
+  batchId    String?  @map("batch_id")
+  isUndone   Boolean  @default(false) @map("is_undone")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  isDeleted  Boolean  @default(false) @map("is_deleted")
+
+  // Relations
+  drawing    Drawing @relation(fields: [drawingId], references: [id])
+  user       User    @relation(fields: [userId], references: [id])
+
+  @@index([drawingId])
+  @@index([batchId])
+  @@map("drawing_actions")
+}
+
+// Drawing version snapshot
+model DrawingVersion {
+  id                  String   @id @default(uuid())
+  drawingId           String   @map("drawing_id")
+  createdById         String   @map("created_by_id")
+  versionName         String   @map("version_name")
+  backgroundLayerData Json     @map("background_layer_data")
+  drawingLayerData    Json     @map("drawing_layer_data")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  isDeleted           Boolean  @default(false) @map("is_deleted")
+
+  // Relations
+  drawing    Drawing @relation(fields: [drawingId], references: [id])
+  createdBy  User    @relation(fields: [createdById], references: [id])
+
+  @@index([drawingId])
+  @@map("drawing_versions")
+}
+
+// Permissions & share links
+model Permission {
+  id             String    @id @default(uuid())
+  drawingId      String    @map("drawing_id")
+  userId         String?   @map("user_id")
+  permissionType String    @map("permission_type")
+  shareToken     String    @unique @map("share_token")
+  expiresAt      DateTime? @map("expires_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  isDeleted      Boolean   @default(false) @map("is_deleted")
+  isActive       Boolean   @default(true) @map("is_active")
+
+  // Relations
+  drawing Drawing @relation(fields: [drawingId], references: [id])
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@index([drawingId, userId])
+  @@index([shareToken])
+  @@map("permissions")
+}
