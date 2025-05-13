@@ -5,6 +5,8 @@ import { DrawingModule } from './modules/drawing/drawing.module';
 import { CoreModule } from './core/core.module';
 import { SharedModule } from './shared/shared.module';
 import { PrismaModule } from './core/prisma/prisma.module';
+import { ConfigModule } from '@nestjs/config';
+import { HealthModule } from './modules/health/health.module';
 
 /**
  * AppModule is the root module of the application.
@@ -17,6 +19,10 @@ import { PrismaModule } from './core/prisma/prisma.module';
     CoreModule,
     SharedModule,
     PrismaModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    HealthModule,
   ],
 })
 export class AppModule {}
