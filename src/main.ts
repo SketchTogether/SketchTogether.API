@@ -8,7 +8,7 @@ async function bootstrap() {
   // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('SketchTogether API')
-    .setDescription('The SketchTogether API documentation')
+    .setDescription('Top 10 Trallalero Trallala')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
